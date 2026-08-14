@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeDrive AI - Object Distance Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <div class="logo-icon"><i class="fa-solid fa-car-burst"></i></div>
+                <h2>SafeDrive <span>AI</span></h2>
+            </div>
+            <nav class="nav-links">
+                <a href="#dashboard" class="nav-item active" data-tab="dashboard"><i class="fa-solid fa-chart-line"></i>
+                    Dashboard</a>
+                <a href="#logs" class="nav-item" data-tab="logs"><i class="fa-solid fa-list-check"></i> Safety Logs</a>
+                <a href="#analytics" class="nav-item" data-tab="analytics"><i class="fa-solid fa-chart-pie"></i>
+                    Analytics</a>
+                <a href="#settings" class="nav-item" data-tab="settings"><i class="fa-solid fa-sliders"></i>
+                    Configuration</a>
+            </nav>
+            <div class="sidebar-status-card">
+                <div class="status-indicator-dot online"></div>
+                <div class="status-info">
+                    <h4>YOLO Engine</h4>
+                    <p>Model: YOLOv8 Nano</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header bar -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Real-time Distance Tracker</h1>
+                    <p>Safety boundary crossing detection and collision hazard telemetry</p>
+                </div>
+                <div class="header-actions">
+                    <div class="alert-bell-wrapper" id="global-alert-bell">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="alert-badge hide" id="alert-count-badge">!</span>
+                    </div>
+                    <div class="user-badge"><i class="fa-solid fa-microchip"></i><span>CPU Inference</span></div>
+                </div>
+            </header>
+
+            <!-- TAB: DASHBOARD -->
+            <div class="tab-pane active" id="tab-dashboard">
+                <section class="metrics-grid">
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon alert-bg"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="metric-data">
+                            <h3>Zone Status</h3>
+                            <p class="value green-text" id="zone-status-text">CLEAR</p>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon objects-bg"><i class="fa-solid fa-eye"></i></div>
+                        <div class="metric-data">
+                            <h3>Targets Tracked</h3>
+                            <p class="value" id="active-targets-count">0</p>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon distance-bg"><i class="fa-solid fa-ruler-horizontal"></i></div>
+                        <div class="metric-data">
+                            <h3>Closest Target</h3>
+                            <p class="value" id="closest-target-distance">- m</p>
+                        </div>
+                    </div>
+                    <div class="metric-card glass-card">
+                        <div class="metric-icon alarm-bg"><i class="fa-solid fa-volume-high"></i></div>
+                        <div class="metric-data">
+                            <h3>Audio Alerts</h3>
+                            <div class="checkbox-wrapper">
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-sound-alert" checked>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="checkbox-label text-sm">Enabled</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="viewport-grid">
+                    <!-- Stream Screen Card -->
+                    <div class="viewport-card glass-card">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-broadcast-tower text-indigo"></i> Telemetry Stream Feed</h3>
+                            <div class="stream-controls">
+                                <select id="video-source-select" class="custom-select"></select>
+                                <button id="upload-trigger-btn" class="btn btn-secondary text-sm"><i
+                                        class="fa-solid fa-cloud-arrow-up"></i> Upload</button>
+                                <input type="file" id="video-file-input" accept="video/*" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="video-container">
+                            <div class="live-tag">LIVE FEED</div>
+                            <img src="/video_feed" alt="Stream" id="video-stream-img">
+                            <div class="critical-overlay-flash hide" id="danger-flash-border"></div>
+                        </div>
+                        <div class="progress-container hide" id="upload-progress-container">
+                            <div class="progress-bar-label">Uploading: <span id="upload-percentage">0%</span></div>
+                            <div class="progress-track">
+                                <div class="progress-fill" id="upload-progress-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="banner-alert-msg clear" id="dashboard-alert-banner">
+                            <div class="banner-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div class="banner-text"><strong>Safety Status: Clear</strong><span>No objects currently
+                                    encroaching safer zone.</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Telemetry Radar & Basic Config Dashboard -->
+                    <section class="side-panel-column">
+                        <div class="side-panel-card glass-card">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-radar text-magenta"></i> Lane Telemetry Radar</h3>
+                                <span class="pulse-dot magenta"></span>
+                            </div>
+                            <div class="radar-list-container">
+                                <table class="radar-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Target</th>
+                                            <th>Distance</th>
+                                            <th>Align</th>
+                                            <th>Risk</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="active-targets-tbody">
+                                        <tr>
+                                            <td colspan="4" class="no-data">Searching active targets...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="side-panel-card glass-card">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-sliders text-cyan"></i> Quick Safety Tuner</h3>
+                            </div>
+                            <div class="quick-settings-form">
+                                <div class="setting-item">
+                                    <div class="setting-labels"><span class="label-name">Safer Zone Limit</span><span
+                                            class="label-val" id="val-safety-limit">5.0 m</span></div>
+                                    <input type="range" class="control-slider slider-red" id="range-safety-limit"
+                                        min="1.0" max="15.0" step="0.5" value="5.0">
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-labels"><span class="label-name">Warning Buffer Zone</span><span
+                                            class="label-val" id="val-warning-limit">10.0 m</span></div>
+                                    <input type="range" class="control-slider slider-orange" id="range-warning-limit"
+                                        min="5.0" max="25.0" step="0.5" value="10.0">
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-labels"><span class="label-name">Camera Calibration
+                                            Factor</span><span class="label-val" id="val-camera-factor">1.2x</span>
+                                    </div>
+                                    <input type="range" class="control-slider slider-blue" id="range-camera-factor"
+                                        min="0.5" max="2.5" step="0.1" value="1.2">
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <section class="recent-breach-section glass-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-clock-rotate-left text-amber"></i> Recent Safety Breaches</h3>
+                        <button id="clear-logs-btn" class="btn btn-danger-outline text-sm"><i
+                                class="fa-solid fa-trash-can"></i> Clear Logs</button>
+                    </div>
+                    <div class="logs-table-container">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Object Class</th>
+                                    <th>Distance</th>
+                                    <th>Severity</th>
+                                    <th>Snapshot</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-tbody">
+                                <tr>
+                                    <td colspan="5" class="no-data">No breach events recorded.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB: ALL LAUNCHED LOGS -->
+            <div class="tab-pane" id="tab-logs">
+                <section class="glass-card full-tab-card">
+                    <div class="card-header">
+                        <h2>All Recorded Penetration Logs</h2>
+                        <div class="filter-actions">
+                            <select id="filter-severity" class="custom-select">
+                                <option value="">All Severities</option>
+                                <option value="CRITICAL">CRITICAL</option>
+                                <option value="WARNING">WARNING</option>
+                            </select>
+                            <select id="filter-class" class="custom-select">
+                                <option value="">All Classes</option>
+                                <option value="person">Person</option>
+                                <option value="car">Car</option>
+                                <option value="bicycle">Bicycle</option>
+                                <option value="motorcycle">Motorcycle</option>
+                                <option value="truck">Truck</option>
+                                <option value="bus">Bus</option>
+                            </select>
+                            <button id="filter-clear-all" class="btn btn-secondary"><i class="fa-solid fa-undo"></i>
+                                Reset Filters</button>
+                        </div>
+                    </div>
+                    <div class="logs-table-container large-table-container">
+                        <table class="logs-table full-width">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Object Type</th>
+                                    <th>Distance</th>
+                                    <th>Severity</th>
+                                    <th>Snapshot</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-logs-tbody">
+                                <tr>
+                                    <td colspan="6" class="no-data">No logs found matching filters.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- TAB: ANALYTICS -->
+            <div class="tab-pane" id="tab-analytics">
+                <div class="analytics-layout-grid">
+                    <div class="glass-card chart-wrapper-card">
+                        <div class="card-header">
+                            <h3>Object Categorisation Distro</h3>
+                        </div>
+                        <div class="chart-content"><canvas id="chart-object-distribution"></canvas></div>
+                    </div>
+                    <div class="glass-card chart-wrapper-card">
+                        <div class="card-header">
+                            <h3>Severity Levels Doughnut</h3>
+                        </div>
+                        <div class="chart-content"><canvas id="chart-severity-levels"></canvas></div>
+                    </div>
+                    <div class="glass-card full-width-card stats-summary-panel">
+                        <div class="card-header">
+                            <h3>Overall Telemetry Metrics</h3>
+                        </div>
+                        <div class="stats-display-row">
+                            <div class="stat-box"><span class="label">Total Safety Breaches</span><span class="number"
+                                    id="stats-total-breaches">0</span></div>
+                            <div class="stat-box"><span class="label">Average Proximity logged</span><span
+                                    class="number" id="stats-average-distance">0.0 m</span></div>
+                            <div class="stat-box"><span class="label">Minimum Hazard Recorded</span><span
+                                    class="number text-danger" id="stats-min-distance">0.0 m</span></div>
+                            <div class="stat-box"><span class="label">System DB Health</span><span
+                                    class="number text-green" id="stats-db-health">Healthy</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: SETTINGS -->
+            <div class="tab-pane" id="tab-settings">
+                <section class="glass-card full-tab-card settings-wrapper">
+                    <div class="card-header">
+                        <h2>System Calibration Settings</h2>
+                    </div>
+                    <form id="settings-details-form" class="settings-form">
+                        <div class="settings-grid">
+                            <div class="settings-col">
+                                <h3>Distance Calibration Settings</h3>
+                                <div class="form-group">
+                                    <label>Safety Threshold Limit (Meters)</label>
+                                    <input type="number" id="input-safety-threshold" step="0.1" min="0.5" max="20"
+                                        class="form-control">
+                                    <small>Objects detected under this limit trigger CRITICAL alerts.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Warning Buffer Threshold (Meters)</label>
+                                    <input type="number" id="input-warning-threshold" step="0.1" min="1" max="40"
+                                        class="form-control">
+                                    <small>Draws orange warning boxes under this limit.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Focal Length Factors</label>
+                                    <input type="number" id="input-focal-factor" step="0.05" min="0.2" max="5.0"
+                                        class="form-control">
+                                    <small>Focal length factor multiplier mapping frame pixels to standard meter
+                                        sizes.</small>
+                                </div>
+                            </div>
+                            <div class="settings-col">
+                                <h3>Inference Calibration</h3>
+                                <div class="form-group">
+                                    <label>Minimum YOLO Confidence Score</label>
+                                    <input type="number" id="input-min-confidence" step="0.05" min="0.1" max="0.95"
+                                        class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label>Active Class Filters</label>
+                                    <div class="checkbox-grid">
+                                        <label class="check-container"><input type="checkbox" name="active-class-cb"
+                                                value="car" checked><span class="checkmark"></span> Cars</label>
+                                        <label class="check-container"><input type="checkbox" name="active-class-cb"
+                                                value="person" checked><span class="checkmark"></span>
+                                            Pedestrians</label>
+                                        <label class="check-container"><input type="checkbox" name="active-class-cb"
+                                                value="bicycle" checked><span class="checkmark"></span> Bicycles</label>
+                                        <label class="check-container"><input type="checkbox" name="active-class-cb"
+                                                value="motorcycle" checked><span class="checkmark"></span>
+                                            Motorcycles</label>
+                                        <label class="check-container"><input type="checkbox" name="active-class-cb"
+                                                value="truck" checked><span class="checkmark"></span> Trucks</label>
+                                        <label class="check-container"><input type="checkbox" name="active-class-cb"
+                                                value="bus" checked><span class="checkmark"></span> Buses</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-actions"><button type="submit" class="btn btn-primary"><i
+                                    class="fa-solid fa-floppy-disk"></i> Apply Settings</button></div>
+                    </form>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Snapshot zoom modal -->
+    <div class="modal hide" id="snapshot-modal">
+        <div class="modal-backdrop" id="modal-backdrop-el"></div>
+        <div class="modal-content-wrapper glass-card">
+            <button class="modal-close-btn" id="modal-close-btn"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-header">
+                <h3>Safety Breach Image Telemetry</h3>
+                <p id="modal-subtitle"></p>
+            </div>
+            <div class="modal-body"><img src="" id="modal-image-view" alt="Snapshot details"></div>
+        </div>
+    </div>
+    <script src="/static/js/main.js"></script>
+</body>
+
+</html>
